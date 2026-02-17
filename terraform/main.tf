@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "ap-south-1"
+  region = var.region
 }
 
 resource "aws_security_group" "devops_sg" {
@@ -29,8 +29,8 @@ resource "aws_security_group" "devops_sg" {
 }
 
 resource "aws_instance" "devops_server" {
-  ami           = "ami-0f5ee92e2d63afc18"
-  instance_type = "t2.micro"
+  ami           = var.ami_id
+  instance_type = var.instance_type
 
   vpc_security_group_ids = [aws_security_group.devops_sg.id]
 
@@ -47,7 +47,11 @@ resource "aws_instance" "devops_server" {
   }
 }
 
-output "instance public ip" {
-  description = "Public IP of the EC2 instance"
-  value = aws_instance.devops_server.public_ip
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/inventory.tpl", {
+    public_ip = aws_instance.devops_server.public_ip
+  })
+
+  filename = "${path.root}/ansible/inventory/hosts.ini"
 }
+
