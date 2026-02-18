@@ -1,0 +1,18 @@
+- name: Configure DevOps EC2 Server
+  hosts: devops_server
+  become: true
+
+  tasks:
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Pull latest Docker image from Docker Hub
+      docker_container:
+        name: my-devops-container
+        image: armanshaikh23/my-devops-app:latest
+        state: started
+        ports:
+          - "80:80"
