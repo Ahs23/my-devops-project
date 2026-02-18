@@ -1,0 +1,11 @@
+# Terraform generated files
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Ansible generated inventory (auto-created by Terraform)
+ansible/inventory/hosts.ini
+
+# OS junk
+.DS_Store
+Thumbs.db
