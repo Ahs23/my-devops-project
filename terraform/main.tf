@@ -55,3 +55,12 @@ resource "local_file" "ansible_inventory" {
   filename = "${path.root}/ansible/inventory/hosts.ini"
 }
 
+resource "null_resource" "run_ansible" {
+  depends_on = [aws_instance.devops_server, local_file.ansible_inventory]
+
+  provisioner "local-exec" {
+    command = "ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml"
+  }
+}
+
+
