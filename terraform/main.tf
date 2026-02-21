@@ -28,9 +28,15 @@ resource "aws_security_group" "devops_sg" {
   }
 }
 
+resource "aws_key_pair" "devops_key" {
+  key_name   = "arman-devops-key"
+  public_key = file("~/.ssh/arman-devops-key.pub")
+}
+
 resource "aws_instance" "devops_server" {
   ami           = var.ami_id
   instance_type = var.instance_type
+  key_name = aws_key_pair.devops_key.key_name
 
   vpc_security_group_ids = [aws_security_group.devops_sg.id]
 
@@ -52,14 +58,18 @@ resource "local_file" "ansible_inventory" {
     public_ip = aws_instance.devops_server.public_ip
   })
 
-  filename = "${path.root}/ansible/inventory/hosts.ini"
+  filename = "../ansible/inventory/hosts.ini"
 }
 
 resource "null_resource" "run_ansible" {
   depends_on = [aws_instance.devops_server, local_file.ansible_inventory]
 
   provisioner "local-exec" {
-    command = "ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml"
+  command = <<EOT
+  echo "Waiting for SSH to be ready..."
+  sleep 40
+  ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml
+  EOT
   }
 }
 

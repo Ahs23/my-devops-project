@@ -1,2 +1,2 @@
 [devops_server]
-ec2-instance ansible_host=${public_ip} ansible_user=ec2-user
+ec2-instance ansible_host=${public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/arman-devops-key
