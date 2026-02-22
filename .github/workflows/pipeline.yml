@@ -50,9 +50,17 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           
+          # Write private key safely
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/arman-devops-key
           chmod 600 ~/.ssh/arman-devops-key
           
+          # Verify key was written
+          if [ ! -f ~/.ssh/arman-devops-key ]; then
+            echo "ERROR: SSH key file was not created!"
+            exit 1
+          fi
+          
+          # Create SSH config
           cat > ~/.ssh/config << 'EOF'
           Host *
               StrictHostKeyChecking no
@@ -61,6 +69,9 @@ jobs:
           EOF
           
           chmod 600 ~/.ssh/config
+          
+          echo "✓ SSH key setup completed"
+          ls -la ~/.ssh/
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
@@ -76,4 +87,13 @@ jobs:
 
       - name: Terraform Apply
         working-directory: terraform
-        run: terraform apply -auto-approve -input=false -var "public_key=${{ secrets.EC2_PUBLIC_KEY }}"
+        run: |
+          echo "=== Terraform Apply ==="
+          terraform apply -auto-approve -input=false \
+            -var "public_key=${{ secrets.EC2_PUBLIC_KEY }}" \
+            -var "region=ap-south-1" \
+            -var "instance_type=t3.micro"
+          
+          # Show outputs
+          echo "=== Terraform Outputs ==="
+          terraform output || true

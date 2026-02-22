@@ -3,10 +3,7 @@ provider "aws" {
 }
 
 data "aws_security_group" "devops_sg" {
-  filter {
-    name   = "group-name"
-    values = ["devops-project-sg"]
-  }
+  name = "default"
 }
 
 resource "aws_key_pair" "devops_key" {
@@ -47,19 +44,59 @@ resource "null_resource" "run_ansible" {
 
   provisioner "local-exec" {
     command = <<EOT
-echo "Waiting for SSH to be ready..."
-for i in {1..30}; do
-  if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/arman-devops-key ec2-user@${aws_instance.devops_server.public_ip} "echo 'SSH Ready'" 2>/dev/null; then
-    echo "SSH connection successful!"
+#!/bin/bash
+set -e
+
+INSTANCE_IP="${aws_instance.devops_server.public_ip}"
+SSH_KEY="$HOME/.ssh/arman-devops-key"
+
+echo "=== Waiting for EC2 instance to be ready ==="
+echo "Instance IP: $INSTANCE_IP"
+echo "SSH Key: $SSH_KEY"
+
+# Verify key exists
+if [ ! -f "$SSH_KEY" ]; then
+  echo "ERROR: SSH key not found at $SSH_KEY"
+  exit 1
+fi
+
+chmod 600 "$SSH_KEY"
+echo "✓ SSH key permissions set correctly"
+
+# Wait for SSH to be ready with exponential backoff
+max_attempts=50
+attempt=0
+
+echo "Attempting SSH connection (max 50 attempts)..."
+while [ $attempt -lt $max_attempts ]; do
+  attempt=$((attempt + 1))
+  echo "[$attempt/$max_attempts] Testing SSH connection..."
+  
+  if ssh -o ConnectTimeout=10 \
+          -o StrictHostKeyChecking=no \
+          -o UserKnownHostsFile=/dev/null \
+          -o PasswordAuthentication=no \
+          -i "$SSH_KEY" \
+          ec2-user@$INSTANCE_IP \
+          "echo 'SSH Ready'" 2>&1; then
+    echo "✓ SSH connection successful!"
     break
   fi
-  echo "Attempt $i: Waiting for SSH..."
-  sleep 10
+  
+  if [ $attempt -lt $max_attempts ]; then
+    sleep 15
+  fi
 done
 
-echo "Running Ansible playbook..."
+if [ $attempt -eq $max_attempts ]; then
+  echo "ERROR: Could not establish SSH connection after $max_attempts attempts"
+  exit 1
+fi
+
+echo "=== Running Ansible playbook ==="
+cd ../ansible
 ANSIBLE_HOST_KEY_CHECKING=False \
-ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml -u ec2-user
+ansible-playbook -i inventory/hosts.ini setup-k8s.yml -u ec2-user -v
 EOT
   }
 }
