@@ -18,7 +18,7 @@ resource "aws_instance" "devops_server" {
   ami           = var.ami_id
   instance_type = var.instance_type
   vpc_security_group_ids = [data.aws_security_group.devops_sg.id]
-  key_name               = data.aws_key_pair.devops_key.key_name
+  key_name               = aws_key_pair.devops_key.key_name
 
   user_data = <<-EOF
               #!/bin/bash
