@@ -9,8 +9,9 @@ data "aws_security_group" "devops_sg" {
   }
 }
 
-data "aws_key_pair" "devops_key" {
-  key_name = "arman-devops-key"
+resource "aws_key_pair" "devops_key" {
+  key_name   = "arman-devops-key"
+  public_key = var.public_key
 }
 
 resource "aws_instance" "devops_server" {
