@@ -116,7 +116,13 @@ if [ ! -f "$SSH_KEY" ]; then
 fi
 
 chmod 600 "$SSH_KEY"
+ls -la "$SSH_KEY"
 echo "✓ SSH key permissions set correctly"
+
+# Debug: Check key format
+echo "=== SSH Key Info ==="
+head -1 "$SSH_KEY"
+wc -l "$SSH_KEY"
 
 # Initial wait for EC2 to fully boot and run user_data
 echo "Waiting 300 seconds (5 minutes) for EC2 instance to fully boot and initialize..."
@@ -134,6 +140,7 @@ while [ $attempt -lt $max_attempts ]; do
           -o StrictHostKeyChecking=no \
           -o UserKnownHostsFile=/dev/null \
           -o PasswordAuthentication=no \
+          -v \
           -i "$SSH_KEY" \
           ec2-user@$INSTANCE_IP \
           "echo 'SSH Ready'" 2>&1; then
@@ -156,18 +163,38 @@ while [ $attempt -lt $max_attempts ]; do
 done
 
 if [ $attempt -eq $max_attempts ]; then
+  echo ""
   echo "ERROR: Could not establish SSH connection after $max_attempts attempts"
-  echo "Debugging info:"
+  echo ""
+  echo "=== DEBUG INFO ==="
   echo "Instance IP: $INSTANCE_IP"
+  echo "SSH Key path: $SSH_KEY"
   echo "SSH Key exists: $([ -f $SSH_KEY ] && echo 'YES' || echo 'NO')"
-  echo "Try manual SSH test: ssh -i $SSH_KEY ec2-user@$INSTANCE_IP"
+  echo ""
+  echo "Manual SSH test command:"
+  echo "ssh -v -i $SSH_KEY ec2-user@$INSTANCE_IP"
+  echo ""
+  echo "Check EC2 console for:"
+  echo "1. Instance is in 'running' state"
+  echo "2. Public IP is assigned"
+  echo "3. Security group allows port 22 inbound"
+  echo ""
   exit 1
 fi
 
-echo "=== Running Ansible playbook ==="
-cd ../ansible
-ANSIBLE_HOST_KEY_CHECKING=False \
-ansible-playbook -i inventory/hosts.ini setup-k8s.yml -u ec2-user -v
+echo ""
+echo "=== SSH Connection Successful! ==="
+echo "Ready to run Ansible playbook..."
+echo ""
+
+# TODO: Uncomment when SSH is working
+# echo "=== Running Ansible playbook ==="
+# cd ../ansible
+# ANSIBLE_HOST_KEY_CHECKING=False \
+# ansible-playbook -i inventory/hosts.ini setup-k8s.yml -u ec2-user -v
+
+echo "Ansible playbook execution is currently DISABLED for debugging."
+echo "Re-enable it once SSH connectivity is confirmed."
 EOT
   }
 }
