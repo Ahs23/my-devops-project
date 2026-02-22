@@ -49,11 +49,18 @@ jobs:
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
+          
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/arman-devops-key
           chmod 600 ~/.ssh/arman-devops-key
-
-          # 🔥 Disable host key checking (CI best practice)
-          printf "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null\n" > ~/.ssh/config
+          
+          cat > ~/.ssh/config << 'EOF'
+          Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile=/dev/null
+              IdentityFile ~/.ssh/arman-devops-key
+          EOF
+          
+          chmod 600 ~/.ssh/config
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3

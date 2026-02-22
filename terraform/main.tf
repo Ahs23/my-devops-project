@@ -2,10 +2,33 @@ provider "aws" {
   region = var.region
 }
 
-data "aws_security_group" "devops_sg" {
-  filter {
-    name   = "group-name"
-    values = ["devops-project-sg"]
+resource "aws_security_group" "devops_sg" {
+  name        = "devops-project-sg"
+  description = "Security group for DevOps project"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "devops-project-sg"
   }
 }
 
@@ -15,10 +38,11 @@ resource "aws_key_pair" "devops_key" {
 }
 
 resource "aws_instance" "devops_server" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  vpc_security_group_ids = [data.aws_security_group.devops_sg.id]
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.devops_sg.id]
   key_name               = aws_key_pair.devops_key.key_name
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -46,11 +70,20 @@ resource "null_resource" "run_ansible" {
 
   provisioner "local-exec" {
     command = <<EOT
-  echo "Waiting for SSH to be ready..."
-  sleep 40
-  ANSIBLE_HOST_KEY_CHECKING=False \
-  ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml -u ec2-user
-  EOT
+echo "Waiting for SSH to be ready..."
+for i in {1..30}; do
+  if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/arman-devops-key ec2-user@${aws_instance.devops_server.public_ip} "echo 'SSH Ready'" 2>/dev/null; then
+    echo "SSH connection successful!"
+    break
+  fi
+  echo "Attempt $i: Waiting for SSH..."
+  sleep 10
+done
+
+echo "Running Ansible playbook..."
+ANSIBLE_HOST_KEY_CHECKING=False \
+ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml -u ec2-user
+EOT
   }
 }
 
