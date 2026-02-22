@@ -12,3 +12,8 @@ variable "ami_id" {
   description = "AMI ID for EC2 instance"
   default     = "ami-0f5ee92e2d63afc18"
 }
+
+variable "public_key" {
+  description = "SSH Public key for EC2"
+  type        = string
+}

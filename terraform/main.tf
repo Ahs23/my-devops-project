@@ -30,7 +30,7 @@ resource "aws_security_group" "devops_sg" {
 
 resource "aws_key_pair" "devops_key" {
   key_name   = "arman-devops-key"
-  public_key = file("~/.ssh/arman-devops-key.pub")
+  public_key = var.public_key
 }
 
 resource "aws_instance" "devops_server" {
