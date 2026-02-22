@@ -93,21 +93,24 @@ echo "SSH Key: $SSH_KEY"
 
 # Verify key exists
 if [ ! -f "$SSH_KEY" ]; then
-  echo "ERROR: SSH key not found at $SSH_KEY"
+  echo "ERROR: SSH key file not found at $SSH_KEY"
   exit 1
 fi
 
 chmod 600 "$SSH_KEY"
 echo "✓ SSH key permissions set correctly"
 
-# Wait for SSH to be ready with exponential backoff
+# Initial wait for EC2 to fully boot and run user_data
+echo "Waiting 120 seconds for EC2 instance to fully boot and initialize..."
+sleep 120
+
+echo "Attempting SSH connection (max 50 attempts)..."
 max_attempts=50
 attempt=0
 
-echo "Attempting SSH connection (max 50 attempts)..."
 while [ $attempt -lt $max_attempts ]; do
   attempt=$((attempt + 1))
-  echo "[$attempt/$max_attempts] Testing SSH connection..."
+  echo "[$attempt/$max_attempts] Testing SSH connection to ec2-user@$INSTANCE_IP..."
   
   if ssh -o ConnectTimeout=10 \
           -o StrictHostKeyChecking=no \
@@ -118,15 +121,21 @@ while [ $attempt -lt $max_attempts ]; do
           "echo 'SSH Ready'" 2>&1; then
     echo "✓ SSH connection successful!"
     break
-  fi
-  
-  if [ $attempt -lt $max_attempts ]; then
-    sleep 15
+  else
+    echo "Connection failed (attempt $attempt/$max_attempts)"
+    if [ $attempt -lt $max_attempts ]; then
+      echo "Waiting 15 seconds before retry..."
+      sleep 15
+    fi
   fi
 done
 
 if [ $attempt -eq $max_attempts ]; then
   echo "ERROR: Could not establish SSH connection after $max_attempts attempts"
+  echo "Debugging info:"
+  echo "Instance IP: $INSTANCE_IP"
+  echo "SSH Key exists: $([ -f $SSH_KEY ] && echo 'YES' || echo 'NO')"
+  echo "Try manual SSH test: ssh -i $SSH_KEY ec2-user@$INSTANCE_IP"
   exit 1
 fi
 
