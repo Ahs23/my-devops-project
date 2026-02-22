@@ -1,3 +1,11 @@
+terraform {
+  backend "s3" {
+    bucket = "arman-devops-tf-state"
+    key    = "devops-project/terraform.tfstate"
+    region = "ap-south-1"
+  }
+}
+
 provider "aws" {
   region = var.region
 }
@@ -36,7 +44,7 @@ resource "aws_key_pair" "devops_key" {
 resource "aws_instance" "devops_server" {
   ami           = var.ami_id
   instance_type = var.instance_type
-  key_name = aws_key_pair.devops_key.key_name
+  key_name      = aws_key_pair.devops_key.key_name
 
   vpc_security_group_ids = [aws_security_group.devops_sg.id]
 
@@ -65,10 +73,11 @@ resource "null_resource" "run_ansible" {
   depends_on = [aws_instance.devops_server, local_file.ansible_inventory]
 
   provisioner "local-exec" {
-  command = <<EOT
+    command = <<EOT
   echo "Waiting for SSH to be ready..."
   sleep 40
-  ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml
+  ANSIBLE_HOST_KEY_CHECKING=False \
+  ansible-playbook -i ../ansible/inventory/hosts.ini ../ansible/setup-k8s.yml -u ec2-user
   EOT
   }
 }
