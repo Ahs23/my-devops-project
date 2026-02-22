@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 resource "aws_security_group" "devops_sg" {
-  name        = "devops-project-sg1"
+  name        = "devops-project-sg"
   description = "Security group for DevOps CI/CD"
 
   ingress {
@@ -39,7 +39,7 @@ resource "aws_security_group" "devops_sg" {
   }
 
   tags = {
-    Name = "devops-project-sg1"
+    Name = "devops-project-sg"
   }
 }
 
