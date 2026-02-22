@@ -101,8 +101,8 @@ chmod 600 "$SSH_KEY"
 echo "✓ SSH key permissions set correctly"
 
 # Initial wait for EC2 to fully boot and run user_data
-echo "Waiting 120 seconds for EC2 instance to fully boot and initialize..."
-sleep 120
+echo "Waiting 300 seconds (5 minutes) for EC2 instance to fully boot and initialize..."
+sleep 300
 
 echo "Attempting SSH connection (max 50 attempts)..."
 max_attempts=50
