@@ -1,11 +1,3 @@
-terraform {
-  backend "s3" {
-    bucket = "arman-devops-tf-state"
-    key    = "devops-project/terraform.tfstate"
-    region = "ap-south-1"
-  }
-}
-
 provider "aws" {
   region = var.region
 }
