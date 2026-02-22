@@ -3,7 +3,6 @@ provider "aws" {
 }
 
 resource "aws_security_group" "devops_sg" {
-  name        = "devops-project-sg1"
   description = "Security group for DevOps CI/CD"
 
   ingress {
@@ -39,7 +38,7 @@ resource "aws_security_group" "devops_sg" {
   }
 
   tags = {
-    Name = "devops-project-sg1"
+    Name = "devops-project-sg"
   }
 }
 
@@ -55,13 +54,32 @@ resource "aws_instance" "devops_server" {
   key_name               = aws_key_pair.devops_key.key_name
   associate_public_ip_address = true
 
-  user_data = <<-EOF
+  user_data = base64encode(<<-EOF
               #!/bin/bash
-              yum update -y
-              yum install docker -y
-              systemctl start docker
-              systemctl enable docker
+              set -x
+              echo "=== Starting user_data script ===" > /var/log/user-data.log
+              date >> /var/log/user-data.log
+              
+              # Update system
+              yum update -y 2>&1 | tee -a /var/log/user-data.log
+              
+              # Install Docker
+              yum install -y docker 2>&1 | tee -a /var/log/user-data.log
+              
+              # Start Docker
+              systemctl start docker 2>&1 | tee -a /var/log/user-data.log
+              systemctl enable docker 2>&1 | tee -a /var/log/user-data.log
+              
+              # Ensure ec2-user has proper SSH setup
+              echo "=== Verifying ec2-user SSH setup ===" >> /var/log/user-data.log
+              mkdir -p /home/ec2-user/.ssh
+              chmod 700 /home/ec2-user/.ssh
+              chown -R ec2-user:ec2-user /home/ec2-user/.ssh
+              
+              echo "=== User data script completed ===" >> /var/log/user-data.log
+              date >> /var/log/user-data.log
               EOF
+  )
 
   tags = {
     Name = "devops-project-server"
@@ -123,6 +141,13 @@ while [ $attempt -lt $max_attempts ]; do
     break
   else
     echo "Connection failed (attempt $attempt/$max_attempts)"
+    
+    # Debug: try to get instance console output
+    if [ $attempt -eq 1 ]; then
+      echo "First attempt failed, checking system logs..."
+      ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$SSH_KEY" ec2-user@$INSTANCE_IP "tail -20 /var/log/user-data.log" 2>/dev/null || echo "Could not retrieve logs"
+    fi
+    
     if [ $attempt -lt $max_attempts ]; then
       echo "Waiting 15 seconds before retry..."
       sleep 15
