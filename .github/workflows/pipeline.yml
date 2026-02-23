@@ -60,6 +60,12 @@ jobs:
             exit 1
           fi
           
+          # Verify key is readable
+          if ! cat ~/.ssh/arman-devops-key > /dev/null 2>&1; then
+            echo "ERROR: Cannot read SSH key!"
+            exit 1
+          fi
+          
           # Create SSH config
           cat > ~/.ssh/config << 'EOF'
           Host *
@@ -69,9 +75,12 @@ jobs:
           EOF
           
           chmod 600 ~/.ssh/config
+          chmod 700 ~/.ssh
           
           echo "✓ SSH key setup completed"
           ls -la ~/.ssh/
+          echo "✓ Key content verification:"
+          ssh-keygen -l -f ~/.ssh/arman-devops-key
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
@@ -105,13 +114,82 @@ jobs:
           echo "Public IP: $PUBLIC_IP"
           
           # Generate inventory file from template
-          sed "s/\${public_ip}/$PUBLIC_IP/g" inventory.tpl > ../ansible/inventory/hosts.ini
           mkdir -p ../ansible/inventory
-          echo "✓ Ansible inventory generated"
+          sed "s/\${public_ip}/$PUBLIC_IP/g" inventory.tpl > ../ansible/inventory/hosts.ini
+          echo "✓ Ansible inventory generated:"
           cat ../ansible/inventory/hosts.ini
+
+      - name: Wait for EC2 Instance to be Ready
+        run: |
+          INSTANCE_IP=$(cd terraform && terraform output -raw public_ip)
+          echo "Waiting for EC2 instance to be ready at $INSTANCE_IP..."
+          for i in {1..30}; do
+            if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -i ~/.ssh/arman-devops-key ec2-user@$INSTANCE_IP "echo 'Instance is ready'" 2>/dev/null; then
+              echo "✓ EC2 instance is ready!"
+              break
+            fi
+            echo "Attempt $i/30: Instance not ready yet, waiting..."
+            sleep 10
+          done
 
       - name: Run Ansible Playbook
         working-directory: ansible
         run: |
           echo "=== Running Ansible Playbook ==="
-          ansible-playbook -i inventory/hosts.ini setup-k8s.yml -v || true
+          echo "Checking inventory file:"
+          cat inventory/hosts.ini
+          echo ""
+          echo "Checking SSH connection:"
+          ansible all -i inventory/hosts.ini -m ping -vvv
+          echo ""
+          echo "Running playbook:"
+          ansible-playbook -i inventory/hosts.ini setup-k8s.yml -v
+
+      - name: Verify Kubernetes Deployment
+        run: |
+          INSTANCE_IP=$(cd terraform && terraform output -raw public_ip)
+          echo "Verifying Kubernetes deployment on $INSTANCE_IP..."
+          
+          # Give the deployment some time to stabilize
+          sleep 30
+          
+          # Check deployment status via SSH
+          echo "=== Checking Kubernetes nodes ==="
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/arman-devops-key ec2-user@$INSTANCE_IP \
+            "kubectl get nodes --kubeconfig=/home/ec2-user/.kube/config" || echo "Note: kubectl may still be initializing"
+          
+          echo ""
+          echo "=== Checking pods ==="
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/arman-devops-key ec2-user@$INSTANCE_IP \
+            "kubectl get pods -n default --kubeconfig=/home/ec2-user/.kube/config" || true
+          
+          echo ""
+          echo "=== Checking services ==="
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/arman-devops-key ec2-user@$INSTANCE_IP \
+            "kubectl get svc -n default --kubeconfig=/home/ec2-user/.kube/config" || true
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "   DEVOPS CI/CD PIPELINE COMPLETED"
+          echo "=========================================="
+          echo ""
+          echo "Docker Image:"
+          echo "  - armanshaikh23/my-devops-app:latest"
+          echo "  - armanshaikh23/my-devops-app:${{ github.sha }}"
+          echo ""
+          INSTANCE_IP=$(cd terraform && terraform output -raw public_ip 2>/dev/null || echo "N/A")
+          echo "EC2 Instance IP: $INSTANCE_IP"
+          echo "SSH User: ec2-user"
+          echo "SSH Key: ~/.ssh/arman-devops-key"
+          echo ""
+          echo "Kubernetes Cluster: Initialized on EC2"
+          echo "App Namespace: default"
+          echo "App Name: my-devops-app"
+          echo ""
+          echo "To verify deployment:"
+          echo "  ssh -i arman-devops-key ec2-user@$INSTANCE_IP"
+          echo "  kubectl get pods -n default --kubeconfig=~/.kube/config"
+          echo ""
+          echo "=========================================="

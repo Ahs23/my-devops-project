@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Metadata
+namespace: default
+
+# Common labels applied to all resources
+commonLabels:
+  app: my-devops-app
+  managed-by: kustomize
+
+# Common annotations applied to all resources
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+
+# List of resource files to apply
+resources:
+  - deployment.yml
+  - service.yml
+  - hpa.yml
+
+# Images to use
+images:
+  - name: armanshaikh23/my-devops-app
+    newName: armanshaikh23/my-devops-app
+    newTag: latest
+
+# Replicas configuration
+replicas:
+  - name: my-devops-app
+    count: 3

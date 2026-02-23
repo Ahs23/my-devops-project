@@ -9,8 +9,28 @@ arman-devops-key.pub
 terraform.tfvars
 
 # Ansible generated inventory (auto-created by Terraform)
-ansible/inventory/hosts.ini
+ansible/inventory/
 
 # OS junk
 .DS_Store
 Thumbs.db
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+
+# Environment files
+.env
+.env.local
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Backup files
+*.backup
+*.bak
+

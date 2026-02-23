@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-devops-app-service
+  namespace: default
+  labels:
+    app: my-devops-app
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-devops-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    name: http
