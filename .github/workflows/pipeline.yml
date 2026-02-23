@@ -97,3 +97,21 @@ jobs:
           # Show outputs
           echo "=== Terraform Outputs ==="
           terraform output || true
+
+      - name: Generate Ansible Inventory
+        working-directory: terraform
+        run: |
+          PUBLIC_IP=$(terraform output -raw public_ip)
+          echo "Public IP: $PUBLIC_IP"
+          
+          # Generate inventory file from template
+          sed "s/\${public_ip}/$PUBLIC_IP/g" inventory.tpl > ../ansible/inventory/hosts.ini
+          mkdir -p ../ansible/inventory
+          echo "✓ Ansible inventory generated"
+          cat ../ansible/inventory/hosts.ini
+
+      - name: Run Ansible Playbook
+        working-directory: ansible
+        run: |
+          echo "=== Running Ansible Playbook ==="
+          ansible-playbook -i inventory/hosts.ini setup-k8s.yml -v || true
