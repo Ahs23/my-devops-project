@@ -1,7 +1,12 @@
+# SSH Keys
+arman-devops-key
+arman-devops-key.pub
+
 # Terraform generated files
 .terraform/
 *.tfstate
 *.tfstate.*
+terraform.tfvars
 
 # Ansible generated inventory (auto-created by Terraform)
 ansible/inventory/hosts.ini
